@@ -1,0 +1,21 @@
+{
+  "name": "rescoldo-final-render",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "render": "remotion render src/index.tsx RESCOLDO-Umbral-Fuego-Final out/RESCOLDO_UMBRAL_FUEGO_FINAL_1080P_24FPS.mp4 --codec=h264 --crf=16 --audio-codec=aac --concurrency=4"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.500",
+    "@remotion/media": "4.0.500",
+    "@remotion/transitions": "4.0.500",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "remotion": "4.0.500"
+  },
+  "devDependencies": {
+    "@types/react": "19.0.8",
+    "@types/react-dom": "19.0.3",
+    "typescript": "5.7.3"
+  }
+}
