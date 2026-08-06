@@ -23,20 +23,28 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Create media folders
-        run: mkdir -p public/video public/audio/music public/audio/voice out
-
-      - name: Download source video and music assets
+      - name: Prepare
         shell: bash
         run: |
-          set -euo pipefail
+          mkdir -p public/video public/audio/music public/audio/voice out
+          : > diagnostic.log
+          node --version | tee -a diagnostic.log
+          npm --version | tee -a diagnostic.log
+
+      - name: Download source assets
+        continue-on-error: true
+        shell: bash
+        run: |
+          exec > >(tee -a diagnostic.log) 2>&1
+          set +e
           download() {
             local url="$1"
             local out="$2"
             echo "Downloading $out"
-            curl -L --fail --retry 4 --retry-all-errors --connect-timeout 30 --max-time 600 "$url" -o "$out"
-            test -s "$out"
-            file "$out"
+            curl -L --fail --retry 2 --connect-timeout 20 --max-time 600 "$url" -o "$out"
+            echo "curl exit=$?"
+            ls -lh "$out" 2>/dev/null
+            file "$out" 2>/dev/null
           }
           download 'https://at.adobe.com/0R8mtYgMtPQf41K8' 'public/video/01-arrival.mp4'
           download 'https://at.adobe.com/XKF2wi0MdEKqOP2n' 'public/video/02-private-access.mp4'
@@ -55,33 +63,47 @@ jobs:
           download 'https://at.adobe.com/vitVpn4Nkz6XHvSU' 'public/video/15-heart.mp4'
           download 'https://at.adobe.com/gImO4dRsitchwH76' 'public/audio/music/Inheritance.mp3'
           download 'https://at.adobe.com/v3bSsPxZy0OsZUZc' 'public/audio/music/Mesa-Espera.mp3'
-
-      - name: Download TZOME voice tracks
-        shell: bash
-        run: |
-          set -euo pipefail
-          curl -L --fail --retry 4 'https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/5aa3fc0e-56cb-4cd8-b1e4-0dabc2697258.mp3' -o public/audio/voice/VO01-prologo.mp3
-          curl -L --fail --retry 4 'https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/b130dddf-cf61-4b10-a1ea-91e67c3e3081.mp3' -o public/audio/voice/VO03-umbral.mp3
-          curl -L --fail --retry 4 'https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/68b44bcc-a262-40e4-8280-a31929613159.mp3' -o public/audio/voice/VO04-caja.mp3
-          curl -L --fail --retry 4 'https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/286c6b70-99af-4307-b55f-3e1850eb5f50.mp3' -o public/audio/voice/VO05-inmovilidad.mp3
-          curl -L --fail --retry 4 'https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/d081b182-e0c7-4451-8cd6-e5ebc6d3d9e9.mp3' -o public/audio/voice/VO06-fuego.mp3
-          file public/audio/voice/*.mp3
+          curl -L --fail --retry 2 'https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/5aa3fc0e-56cb-4cd8-b1e4-0dabc2697258.mp3' -o public/audio/voice/VO01-prologo.mp3
+          curl -L --fail --retry 2 'https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/b130dddf-cf61-4b10-a1ea-91e67c3e3081.mp3' -o public/audio/voice/VO03-umbral.mp3
+          curl -L --fail --retry 2 'https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/68b44bcc-a262-40e4-8280-a31929613159.mp3' -o public/audio/voice/VO04-caja.mp3
+          curl -L --fail --retry 2 'https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/286c6b70-99af-4307-b55f-3e1850eb5f50.mp3' -o public/audio/voice/VO05-inmovilidad.mp3
+          curl -L --fail --retry 2 'https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/d081b182-e0c7-4451-8cd6-e5ebc6d3d9e9.mp3' -o public/audio/voice/VO06-fuego.mp3
+          find public -type f -maxdepth 4 -printf '%p %s bytes\n' | sort
 
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        continue-on-error: true
+        shell: bash
+        run: |
+          exec > >(tee -a diagnostic.log) 2>&1
+          npm install --no-audit --no-fund
+          echo "npm install exit=$?"
 
       - name: Render native Remotion master
-        run: npm run render
-
-      - name: Inspect result
+        continue-on-error: true
+        shell: bash
         run: |
-          ls -lh out/
-          ffprobe -v error -show_entries format=duration,size -show_entries stream=width,height,r_frame_rate,codec_name -of json out/RESCOLDO_UMBRAL_FUEGO_FINAL_1080P_24FPS.mp4
+          exec > >(tee -a diagnostic.log) 2>&1
+          npm run render
+          echo "render exit=$?"
 
-      - name: Upload final video artifact
+      - name: Inspect outputs
+        if: always()
+        shell: bash
+        run: |
+          exec > >(tee -a diagnostic.log) 2>&1
+          find out -maxdepth 2 -type f -printf '%p %s bytes\n' || true
+          if [ -f out/RESCOLDO_UMBRAL_FUEGO_FINAL_1080P_24FPS.mp4 ]; then
+            ffprobe -v error -show_entries format=duration,size -show_entries stream=width,height,r_frame_rate,codec_name -of json out/RESCOLDO_UMBRAL_FUEGO_FINAL_1080P_24FPS.mp4 || true
+          fi
+
+      - name: Upload result and diagnostics
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: RESCOLDO-final-video
-          path: out/RESCOLDO_UMBRAL_FUEGO_FINAL_1080P_24FPS.mp4
+          name: RESCOLDO-render-output
+          path: |
+            diagnostic.log
+            out/*.mp4
+          if-no-files-found: warn
           retention-days: 7
           compression-level: 0
