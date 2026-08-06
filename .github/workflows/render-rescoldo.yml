@@ -10,9 +10,6 @@ on:
 permissions:
   contents: read
 
-env:
-  CI: true
-
 jobs:
   render:
     runs-on: ubuntu-latest
@@ -25,7 +22,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
 
       - name: Create media folders
         run: mkdir -p public/video public/audio/music public/audio/voice out
@@ -73,9 +69,6 @@ jobs:
 
       - name: Install dependencies
         run: npm install --no-audit --no-fund
-
-      - name: Ensure Remotion browser
-        run: npx remotion browser ensure
 
       - name: Render native Remotion master
         run: npm run render
