@@ -1,3 +1,3 @@
 # RESCOLDO final render
 
-Native Remotion final delivery — retry 2.
+Native Remotion final delivery — diagnostic retry 3.
