@@ -1,0 +1,92 @@
+name: Render RESCOLDO Final
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CI: true
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Create media folders
+        run: mkdir -p public/video public/audio/music public/audio/voice out
+
+      - name: Download source video and music assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          download() {
+            local url="$1"
+            local out="$2"
+            echo "Downloading $out"
+            curl -L --fail --retry 4 --retry-all-errors --connect-timeout 30 --max-time 600 "$url" -o "$out"
+            test -s "$out"
+            file "$out"
+          }
+          download 'https://at.adobe.com/0R8mtYgMtPQf41K8' 'public/video/01-arrival.mp4'
+          download 'https://at.adobe.com/XKF2wi0MdEKqOP2n' 'public/video/02-private-access.mp4'
+          download 'https://at.adobe.com/024VRgzJHFj2NdaN' 'public/video/03-fragments.mp4'
+          download 'https://at.adobe.com/KBx36UA7hmD1CsmQ' 'public/video/04-rene-digital.mp4'
+          download 'https://at.adobe.com/Dllf2HNWeOfx0Bm4' 'public/video/05-tzome-fragments.mp4'
+          download 'https://at.adobe.com/tRmx5vLjw2SspDq4' 'public/video/06-convergence.mp4'
+          download 'https://at.adobe.com/t9rr2zypSEw2BWp0' 'public/video/07-speech-umbral.mp4'
+          download 'https://at.adobe.com/rPg0YLBhBbkpXYsb' 'public/video/08-crossing.mp4'
+          download 'https://at.adobe.com/1JoFXiSpVb4paO47' 'public/video/09-table-reveal.mp4'
+          download 'https://at.adobe.com/iCB3GrbJHUSgAAJ9' 'public/video/10-box-wide.mp4'
+          download 'https://at.adobe.com/8qoWMBNz21NK0cKM' 'public/video/11-box-essences.mp4'
+          download 'https://at.adobe.com/E9m5hKLwFt4TWjLH' 'public/video/12-immobility.mp4'
+          download 'https://at.adobe.com/m7OkFExViK48krPv' 'public/video/13-custodios.mp4'
+          download 'https://at.adobe.com/omfEkAYGeKb08GkK' 'public/video/14-ignition.mp4'
+          download 'https://at.adobe.com/vitVpn4Nkz6XHvSU' 'public/video/15-heart.mp4'
+          download 'https://at.adobe.com/gImO4dRsitchwH76' 'public/audio/music/Inheritance.mp3'
+          download 'https://at.adobe.com/v3bSsPxZy0OsZUZc' 'public/audio/music/Mesa-Espera.mp3'
+
+      - name: Download TZOME voice tracks
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 4 'https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/5aa3fc0e-56cb-4cd8-b1e4-0dabc2697258.mp3' -o public/audio/voice/VO01-prologo.mp3
+          curl -L --fail --retry 4 'https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/b130dddf-cf61-4b10-a1ea-91e67c3e3081.mp3' -o public/audio/voice/VO03-umbral.mp3
+          curl -L --fail --retry 4 'https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/68b44bcc-a262-40e4-8280-a31929613159.mp3' -o public/audio/voice/VO04-caja.mp3
+          curl -L --fail --retry 4 'https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/286c6b70-99af-4307-b55f-3e1850eb5f50.mp3' -o public/audio/voice/VO05-inmovilidad.mp3
+          curl -L --fail --retry 4 'https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/d081b182-e0c7-4451-8cd6-e5ebc6d3d9e9.mp3' -o public/audio/voice/VO06-fuego.mp3
+          file public/audio/voice/*.mp3
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Ensure Remotion browser
+        run: npx remotion browser ensure
+
+      - name: Render native Remotion master
+        run: npm run render
+
+      - name: Inspect result
+        run: |
+          ls -lh out/
+          ffprobe -v error -show_entries format=duration,size -show_entries stream=width,height,r_frame_rate,codec_name -of json out/RESCOLDO_UMBRAL_FUEGO_FINAL_1080P_24FPS.mp4
+
+      - name: Upload final video artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: RESCOLDO-final-video
+          path: out/RESCOLDO_UMBRAL_FUEGO_FINAL_1080P_24FPS.mp4
+          retention-days: 7
+          compression-level: 0
